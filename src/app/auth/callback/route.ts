@@ -1,7 +1,14 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { acceptInviteForUser, reasonToParam } from "@/lib/invites";
+
+// Skip /auth/resume when middleware already resolved the host to a tenant.
+async function postAuthDestination(): Promise<string> {
+  const h = await headers();
+  if (h.get("x-tenant-id")) return "/";
+  return "/auth/resume";
+}
 
 const SWITCH_FLASH_COOKIE = "flash_prev_user_email";
 
@@ -93,9 +100,9 @@ export async function GET(request: Request) {
       if (!outcome.ok) {
         return `/tenants?error=${reasonToParam(outcome.reason)}`;
       }
-      return needsPassword ? "/auth/set-password" : "/auth/resume";
+      return needsPassword ? "/auth/set-password" : await postAuthDestination();
     }
 
-    return needsPassword ? "/auth/set-password" : "/auth/resume";
+    return needsPassword ? "/auth/set-password" : await postAuthDestination();
   }
 }

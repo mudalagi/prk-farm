@@ -3,8 +3,19 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 
 export type AuthActionResult = { error?: string } | void;
+
+// After a successful sign-in, prefer landing directly on the dashboard when
+// we're already on the right tenant host (middleware has stamped
+// x-tenant-id from the domain). Falls back to /auth/resume only when the
+// destination depends on cross-host routing or a multi-tenant picker.
+async function postAuthDestination(): Promise<string> {
+  const h = await headers();
+  if (h.get("x-tenant-id")) return "/";
+  return "/auth/resume";
+}
 
 export async function login(
   _prev: AuthActionResult,
@@ -35,7 +46,7 @@ export async function login(
   }
 
   revalidatePath("/");
-  redirect("/auth/resume");
+  redirect(await postAuthDestination());
 }
 
 export async function setPassword(
@@ -69,5 +80,5 @@ export async function setPassword(
   }
 
   revalidatePath("/");
-  redirect("/auth/resume");
+  redirect(await postAuthDestination());
 }
