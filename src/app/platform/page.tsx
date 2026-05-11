@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { I } from "@/components/ui/icons";
+import { DeleteTenantDialog } from "./_components/delete-tenant-dialog";
 
 type TenantRow = {
   id: string;
   name: string;
+  slug: string;
   created_at: string;
 };
 type DomainRow = {
@@ -17,7 +19,7 @@ export default async function PlatformHomePage() {
   const supabase = await createClient();
 
   const [tenantsRes, domainsRes, membersRes, auditRes] = await Promise.all([
-    supabase.from("tenants").select("id, name, created_at").order("created_at", { ascending: false }),
+    supabase.from("tenants").select("id, name, slug, created_at").order("created_at", { ascending: false }),
     supabase
       .from("tenant_domains")
       .select("tenant_id, domain, is_primary, verified_at")
@@ -106,7 +108,7 @@ export default async function PlatformHomePage() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1fr 180px 120px",
+            gridTemplateColumns: "1fr 180px 120px 40px",
             padding: "10px 18px",
             background: "var(--surface-2)",
             borderBottom: "1px solid var(--rule)",
@@ -121,6 +123,7 @@ export default async function PlatformHomePage() {
           <span>Tenant</span>
           <span>Primary domain</span>
           <span>Members</span>
+          <span />
         </div>
         {tenants.length === 0 ? (
           <div style={{ padding: 28, textAlign: "center", color: "var(--ink-3)", fontSize: 13 }}>
@@ -135,7 +138,7 @@ export default async function PlatformHomePage() {
                 key={t.id}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr 180px 120px",
+                  gridTemplateColumns: "1fr 180px 120px 40px",
                   padding: "14px 18px",
                   borderBottom: i === tenants.length - 1 ? "none" : "1px solid var(--rule-2)",
                   alignItems: "center",
@@ -182,6 +185,13 @@ export default async function PlatformHomePage() {
                   style={{ fontSize: 13, fontWeight: 500, color: "var(--ink)" }}
                 >
                   {memberCount.get(t.id) ?? 0}
+                </div>
+                <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                  <DeleteTenantDialog
+                    tenantId={t.id}
+                    tenantName={t.name}
+                    tenantSlug={t.slug}
+                  />
                 </div>
               </div>
             );
