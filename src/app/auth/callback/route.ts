@@ -1,14 +1,18 @@
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { acceptInviteForUser, reasonToParam } from "@/lib/invites";
 import { withAuthCookieDomain } from "@/lib/cookie-domain";
+import { resolvePostAuthDestination } from "@/lib/post-auth";
 
-// Skip /auth/resume when middleware already resolved the host to a tenant.
-async function postAuthDestination(): Promise<string> {
-  const h = await headers();
-  if (h.get("x-tenant-id")) return "/";
-  return "/auth/resume";
+// Returns an internal path for callers that build a Location string, but
+// short-circuits with redirect() when the destination is cross-host (e.g.
+// signup on the apex resolving to the tenant's subdomain).
+async function nextPathOrRedirect(user: User): Promise<string> {
+  const dest = await resolvePostAuthDestination(user);
+  if (dest.kind === "external") redirect(dest.url);
+  return dest.path;
 }
 
 const SWITCH_FLASH_COOKIE = "flash_prev_user_email";
@@ -105,9 +109,9 @@ export async function GET(request: Request) {
       if (!outcome.ok) {
         return `/tenants?error=${reasonToParam(outcome.reason)}`;
       }
-      return needsPassword ? "/auth/set-password" : await postAuthDestination();
+      return needsPassword ? "/auth/set-password" : await nextPathOrRedirect(user);
     }
 
-    return needsPassword ? "/auth/set-password" : await postAuthDestination();
+    return needsPassword ? "/auth/set-password" : await nextPathOrRedirect(user);
   }
 }

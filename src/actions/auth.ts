@@ -3,18 +3,22 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
+import { resolvePostAuthDestination } from "@/lib/post-auth";
 
 export type AuthActionResult = { error?: string } | void;
 
-// After a successful sign-in, prefer landing directly on the dashboard when
-// we're already on the right tenant host (middleware has stamped
-// x-tenant-id from the domain). Falls back to /auth/resume only when the
-// destination depends on cross-host routing or a multi-tenant picker.
-async function postAuthDestination(): Promise<string> {
-  const h = await headers();
-  if (h.get("x-tenant-id")) return "/";
-  return "/auth/resume";
+// Resolve the right tenant host + set active_tenant_id inline so the user
+// doesn't bounce through /auth/resume. The helper returns either an internal
+// path (same origin) or an external URL (cross-host); next/navigation's
+// redirect() supports both.
+async function redirectAfterAuth(): Promise<never> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+  const dest = await resolvePostAuthDestination(user);
+  redirect(dest.kind === "external" ? dest.url : dest.path);
 }
 
 export async function login(
@@ -46,7 +50,7 @@ export async function login(
   }
 
   revalidatePath("/");
-  redirect(await postAuthDestination());
+  await redirectAfterAuth();
 }
 
 export async function setPassword(
@@ -80,5 +84,5 @@ export async function setPassword(
   }
 
   revalidatePath("/");
-  redirect(await postAuthDestination());
+  await redirectAfterAuth();
 }

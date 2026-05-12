@@ -39,8 +39,12 @@ export async function GET(request: NextRequest) {
   const tenantIds = (memberships ?? []).map((m) => m.tenant_id as string);
 
   if (tenantIds.length === 0) {
-    // Nothing to land on — sign out so the session doesn't loop through here.
-    base.pathname = "/auth/signout";
+    // Nothing to land on — sign out inline (the /auth/signout route is POST
+    // only, so a redirect there via GET would 405) and surface the reason
+    // on the login screen.
+    await supabase.auth.signOut();
+    base.pathname = "/login";
+    base.searchParams.set("error", "no_tenant");
     return NextResponse.redirect(base);
   }
 
