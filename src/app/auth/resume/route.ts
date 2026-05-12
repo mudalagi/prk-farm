@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isPlatformHost, schemeFor } from "@/lib/platform-hosts";
+import { withAuthCookieDomain } from "@/lib/cookie-domain";
 
 // Tenant users must cross-origin back to their tenant host: the protected
 // layout rejects non-platform-admins on the apex with "Wrong door".
@@ -53,13 +54,13 @@ export async function GET(request: NextRequest) {
     (primaries ?? []).map((d) => [d.tenant_id as string, d.domain as string]),
   );
 
-  const cookieOpts = {
+  const cookieOpts = withAuthCookieDomain({
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax" as const,
     path: "/",
     maxAge: 60 * 60 * 24 * 365,
-  };
+  });
 
   if (tenantIds.length === 1) {
     const only = tenantIds[0];

@@ -1,6 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { isPlatformHost } from "@/lib/platform-hosts";
+import { withAuthCookieDomain } from "@/lib/cookie-domain";
 
 type CookieWrite = { name: string; value: string; options: CookieOptions };
 
@@ -34,8 +35,13 @@ export async function updateSession(request: NextRequest) {
             // Keep the incoming request in sync so later reads inside this
             // middleware invocation see the refreshed value.
             request.cookies.set(c.name, c.value);
-            // Remember it for the response write-out.
-            cookiesToSet.push({ name: c.name, value: c.value, options: c.options });
+            // Remember it for the response write-out, scoped to the apex
+            // domain when AUTH_COOKIE_DOMAIN is configured.
+            cookiesToSet.push({
+              name: c.name,
+              value: c.value,
+              options: withAuthCookieDomain(c.options),
+            });
           }
         },
       },

@@ -1,4 +1,5 @@
 import { cookies, headers } from "next/headers";
+import { withAuthCookieDomain } from "@/lib/cookie-domain";
 
 const ACTIVE_TENANT_COOKIE = "active_tenant_id";
 
@@ -16,13 +17,17 @@ export async function getActiveTenantId(): Promise<string | null> {
 
 export async function setActiveTenantId(tenantId: string): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.set(ACTIVE_TENANT_COOKIE, tenantId, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 365, // 1 year
-  });
+  cookieStore.set(
+    ACTIVE_TENANT_COOKIE,
+    tenantId,
+    withAuthCookieDomain({
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365, // 1 year
+    }),
+  );
 }
 
 // True when the request landed on a platform-apex host (chukta.in). Used to

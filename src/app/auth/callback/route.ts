@@ -2,6 +2,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { acceptInviteForUser, reasonToParam } from "@/lib/invites";
+import { withAuthCookieDomain } from "@/lib/cookie-domain";
 
 // Skip /auth/resume when middleware already resolved the host to a tenant.
 async function postAuthDestination(): Promise<string> {
@@ -69,13 +70,17 @@ export async function GET(request: Request) {
     const newEmail = user.email?.toLowerCase() ?? null;
     if (previousEmail && newEmail && previousEmail !== newEmail) {
       const store = await cookies();
-      store.set(SWITCH_FLASH_COOKIE, previousEmail, {
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-        path: "/",
-        maxAge: 60 * 5,
-      });
+      store.set(
+        SWITCH_FLASH_COOKIE,
+        previousEmail,
+        withAuthCookieDomain({
+          httpOnly: true,
+          sameSite: "lax" as const,
+          secure: process.env.NODE_ENV === "production",
+          path: "/",
+          maxAge: 60 * 5,
+        }),
+      );
     }
 
     // Token may be on user_metadata (new users, stamped by inviteUserByEmail)
