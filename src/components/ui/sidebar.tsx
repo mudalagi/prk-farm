@@ -44,6 +44,7 @@ export function Sidebar({
     { href: "/groups", label: "Groups", Icon: I.users, match: (p) => p.startsWith("/groups") },
     { href: "/balances", label: "Balances", Icon: I.scale, match: (p) => p.startsWith("/balances") },
     { href: "/timeline", label: "Timeline", Icon: I.chart, match: (p) => p.startsWith("/timeline") },
+    { href: "/reports", label: "Reports", Icon: I.receipt, match: (p) => p.startsWith("/reports") },
     ...(isTenantAdmin ? [{ href: "/admin", label: "Admin", Icon: I.settings, match: (p: string) => p.startsWith("/admin") }] : []),
   ];
 

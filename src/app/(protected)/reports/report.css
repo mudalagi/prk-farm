@@ -1,0 +1,619 @@
+/* Farm — Monthly / Ad-hoc report stylesheet.
+   Scoped under .report-stage / .sheet so it can't leak into the rest of
+   the app. All design tokens come from the app's globals.css (--ink,
+   --accent, --pos, --neg, …); this file only adds sheet-specific
+   geometry and the print stylesheet that produces the PDF. */
+
+.report-stage {
+  --sheet-w: 794px; /* 210 mm @ 96dpi */
+  --sheet-pad: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+  padding: 32px clamp(16px, 4vw, 44px) 80px;
+}
+
+.report-stage .report-toolbar {
+  width: 100%;
+  max-width: var(--sheet-w);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* ───────── The sheet (A4 preview) ───────── */
+.sheet {
+  width: 100%;
+  max-width: var(--sheet-w);
+  background: var(--card);
+  color: var(--ink);
+  border-radius: 8px;
+  border: 1px solid var(--rule);
+  box-shadow: var(--shadow-lg);
+  padding: clamp(28px, 5vw, var(--sheet-pad));
+  position: relative;
+  overflow: hidden;
+}
+.sheet::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(at 80% 0%, color-mix(in oklch, var(--accent) 6%, transparent), transparent 50%),
+    radial-gradient(at 0% 100%, color-mix(in oklch, var(--accent) 4%, transparent), transparent 50%);
+}
+.sheet > * { position: relative; }
+
+/* ───────── Masthead ───────── */
+.sheet .masthead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--rule-2);
+  margin-bottom: 36px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.sheet .wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font: 500 11px var(--font-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+.sheet .wordmark .leaf {
+  width: 20px; height: 20px; border-radius: 5px;
+  background: var(--accent); color: var(--accent-ink);
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.sheet .masthead .meta {
+  text-align: right;
+  font: 500 11px var(--font-mono);
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+}
+.sheet .masthead .meta > div + div { margin-top: 3px; }
+
+/* ───────── Title block ───────── */
+.sheet .title-block { margin-bottom: 36px; }
+.sheet .title-block .eyebrow { margin-bottom: 12px; }
+.sheet .title-block h1 {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: clamp(40px, 7vw, 64px);
+  line-height: 1.02;
+  letter-spacing: -0.025em;
+  margin: 0 0 14px;
+  color: var(--ink);
+}
+.sheet .title-block h1 em { color: var(--accent); font-style: italic; }
+.sheet .title-block .lede {
+  font: 400 17px/1.55 var(--font-serif);
+  color: var(--ink-2);
+  max-width: 540px;
+  margin: 0;
+}
+.sheet .title-block .lede strong { color: var(--ink); font-weight: 500; }
+
+/* ───────── Hero ───────── */
+.sheet .hero {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  margin-bottom: 40px;
+  border: 1px solid var(--rule);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.sheet .hero-cell {
+  padding: 24px 28px;
+  background: var(--card);
+  position: relative;
+}
+.sheet .hero-cell + .hero-cell { border-left: 1px solid var(--rule-2); }
+.sheet .hero-cell.pos::before,
+.sheet .hero-cell.neg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+}
+.sheet .hero-cell.pos::before {
+  background: linear-gradient(180deg, var(--pos-wash), transparent 70%);
+}
+.sheet .hero-cell.neg::before {
+  background: linear-gradient(180deg, var(--neg-wash), transparent 70%);
+}
+.sheet .hero-cell > * { position: relative; }
+.sheet .hero-cell .num {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: clamp(36px, 5vw, 48px);
+  line-height: 1;
+  letter-spacing: -0.025em;
+  margin: 8px 0 10px;
+  font-variant-numeric: tabular-nums;
+}
+.sheet .hero-cell.pos .num { color: var(--pos); }
+.sheet .hero-cell.neg .num { color: var(--neg); }
+.sheet .hero-cell .sub { font: 500 12px var(--font-mono); color: var(--ink-3); }
+
+/* ───────── Section heading ───────── */
+.sheet .section { margin: 40px 0 18px; }
+.sheet .section h2 {
+  font: 400 28px/1.1 var(--font-serif);
+  letter-spacing: -0.02em;
+  margin: 0 0 6px;
+  color: var(--ink);
+}
+.sheet .section h2 em { color: var(--accent); font-style: italic; }
+.sheet .section .kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: 500 10px var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 8px;
+}
+.sheet .section .kicker .num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: var(--ink);
+  color: var(--bg);
+  font: 600 10px var(--font-mono);
+}
+.sheet .section .intro {
+  font: 400 14.5px/1.6 var(--font-serif);
+  color: var(--ink-2);
+  max-width: 560px;
+  margin: 8px 0 0;
+}
+
+/* ───────── Top expenses ───────── */
+.sheet .expense-rows { display: flex; flex-direction: column; }
+.sheet .expense-row {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--rule-2);
+}
+.sheet .expense-row:last-child { border-bottom: none; }
+.sheet .expense-row .rank {
+  font: 500 11px var(--font-mono);
+  color: var(--ink-3);
+  text-align: center;
+}
+.sheet .expense-row .body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.sheet .expense-row .desc {
+  font: 500 14px var(--font-sans);
+  color: var(--ink);
+  letter-spacing: -0.005em;
+}
+.sheet .expense-row .meta {
+  font: 400 11px var(--font-mono);
+  color: var(--ink-3);
+  letter-spacing: 0.04em;
+}
+.sheet .expense-row .meta span + span::before { content: " · "; color: var(--ink-4); }
+.sheet .expense-row .amt {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 20px;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ───────── Member table ───────── */
+.sheet .member-table {
+  display: grid;
+  grid-template-columns: 32px minmax(120px, 1fr) 64px 100px 1fr 110px;
+  column-gap: 14px;
+  align-items: center;
+}
+.sheet .member-table .head { display: contents; }
+.sheet .member-table .head > div {
+  font: 500 9.5px var(--font-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding: 8px 0 10px;
+  border-bottom: 1px solid var(--rule);
+}
+.sheet .member-table .head > div.r { text-align: right; }
+.sheet .member-table .row { display: contents; }
+.sheet .member-table .row > div {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--rule-2);
+}
+.sheet .member-table .row:last-child > div { border-bottom: none; }
+.sheet .member-table .row .name {
+  font: 500 13px var(--font-sans);
+  color: var(--ink);
+}
+.sheet .member-table .row .pct {
+  font: 500 12px var(--font-mono);
+  color: var(--ink-3);
+  text-align: right;
+}
+.sheet .member-table .row .paid {
+  font: 500 13px var(--font-mono);
+  color: var(--ink);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.sheet .member-table .row .net {
+  font: 500 13px var(--font-mono);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.sheet .member-table .row .net.pos { color: var(--pos); }
+.sheet .member-table .row .net.neg { color: var(--neg); }
+
+.sheet .share-track {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  position: relative;
+  overflow: hidden;
+}
+.sheet .share-track .fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+}
+
+/* ───────── Settle up ───────── */
+.sheet .settle-card {
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--card);
+}
+.sheet .settle-head,
+.sheet .settle-row {
+  display: grid;
+  grid-template-columns: 32px minmax(110px, 1fr) 28px 32px minmax(110px, 1fr) 130px;
+  column-gap: 14px;
+  align-items: center;
+}
+.sheet .settle-head {
+  padding: 10px 18px;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--rule);
+  font: 500 9.5px var(--font-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.sheet .settle-head .r { text-align: right; }
+.sheet .settle-row {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--rule-2);
+}
+.sheet .settle-row:last-child { border-bottom: none; }
+.sheet .settle-row .nm {
+  font: 500 13px var(--font-sans);
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sheet .settle-row .nm.from { color: var(--neg); }
+.sheet .settle-row .nm.to { color: var(--pos); }
+.sheet .settle-row .arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-4);
+}
+.sheet .settle-row .amt {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 20px;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.sheet .settle-foot {
+  padding: 12px 18px;
+  background: var(--surface-2);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font: 500 11px var(--font-mono);
+  color: var(--ink-3);
+  letter-spacing: 0.05em;
+}
+
+.sheet .square-card {
+  padding: 22px 26px;
+  text-align: center;
+  border: 1px dashed var(--rule);
+  border-radius: 12px;
+  background: var(--pos-wash);
+}
+.sheet .square-card .big {
+  font: 400 24px var(--font-serif);
+  color: var(--pos);
+  letter-spacing: -0.015em;
+  margin-bottom: 4px;
+}
+.sheet .square-card .sub {
+  font: 500 11px var(--font-mono);
+  color: var(--ink-3);
+  letter-spacing: 0.06em;
+}
+
+/* ───────── Group breakdown ───────── */
+.sheet .group-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 6px;
+}
+@media (max-width: 600px) {
+  .sheet .group-grid { grid-template-columns: 1fr; }
+}
+.sheet .group-card {
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  padding: 16px 18px 18px;
+  background: var(--card);
+  break-inside: avoid;
+}
+.sheet .group-card .gc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.sheet .group-card .gc-name {
+  font: 400 18px var(--font-serif);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.sheet .group-card .gc-tag {
+  font: 500 9px var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+.sheet .group-card .gc-num {
+  font: 400 28px var(--font-serif);
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  line-height: 1;
+  margin-bottom: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.sheet .group-card .gc-meta {
+  font: 400 11px var(--font-mono);
+  color: var(--ink-3);
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+}
+.sheet .group-card .gc-bar {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--surface-2);
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.sheet .group-card .gc-bar .f {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 3px;
+}
+.sheet .group-card .gc-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font: 500 11px var(--font-mono);
+  color: var(--ink-3);
+}
+.sheet .group-card .gc-foot .delta { display: inline-flex; align-items: center; gap: 4px; }
+.sheet .group-card .gc-foot .delta.up { color: var(--neg); }
+.sheet .group-card .gc-foot .delta.down { color: var(--pos); }
+
+/* ───────── Pull quote ───────── */
+.sheet .pull {
+  margin: 36px -8px 0;
+  padding: 22px 26px;
+  border-left: 2px solid var(--accent);
+  background: var(--surface-2);
+  border-radius: 0 12px 12px 0;
+}
+.sheet .pull p {
+  font: 400 19px/1.45 var(--font-serif);
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0;
+}
+.sheet .pull p em { color: var(--accent); font-style: italic; }
+.sheet .pull .by {
+  margin-top: 10px;
+  font: 500 10px var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* ───────── Footer ───────── */
+.sheet .sheet-footer {
+  margin-top: 56px;
+  padding-top: 20px;
+  border-top: 1px solid var(--rule-2);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  font: 500 10px var(--font-mono);
+  letter-spacing: 0.1em;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.sheet .sheet-footer .stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-2);
+  letter-spacing: 0.12em;
+}
+.sheet .sheet-footer .stamp .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pos);
+}
+.sheet .sheet-footer .sub {
+  margin-top: 4px;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--ink-3);
+}
+
+/* Avoid breaks inside delicate blocks when printing */
+.sheet .hero,
+.sheet .pull,
+.sheet .group-card,
+.sheet .member-table,
+.sheet .settle-card { break-inside: avoid; }
+
+.sheet .empty-state {
+  padding: 48px 24px;
+  text-align: center;
+  border: 1px dashed var(--rule);
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--ink-3);
+  font: 500 13px var(--font-mono);
+  letter-spacing: 0.05em;
+}
+
+/* ───────── Print ─────────
+   The printed PDF should always be black-on-white regardless of the
+   user's current theme. We override the dark-mode tokens inside @media
+   print, isolate the sheet via visibility (so layout siblings like the
+   sidebar, tab-bar, mobile top bar, and toolbar can't leak into the
+   PDF), and let content flow naturally across A4 pages when the report
+   is long. */
+@page { size: A4; margin: 0; }
+
+@media print {
+  /* Force light tokens regardless of [data-theme="dark"] state.
+     We mirror the production light palette from globals.css. */
+  :root,
+  :root[data-theme="dark"] {
+    --ink:       #2C2C2A;
+    --ink-2:     oklch(0.45 0.004 95);
+    --ink-3:     oklch(0.62 0.004 95);
+    --ink-4:     oklch(0.78 0.005 90);
+    --rule:      oklch(0.88 0.007 90);
+    --rule-2:    oklch(0.92 0.006 90);
+    --bg:        #FFFFFF;
+    --card:      #FFFFFF;
+    --surface-2: oklch(0.95 0.008 90);
+    --accent:    #0F6E56;
+    --accent-ink:#FFFFFF;
+    --accent-wash:#E1F5EE;
+    --pos:       #0F6E56;
+    --pos-wash:  #E1F5EE;
+    --neg:       #C05A36;
+    --neg-wash:  #F5C4B3;
+  }
+
+  html, body { background: white !important; color: black !important; }
+
+  /* Hide every piece of app chrome. We use display:none (not visibility)
+     so the sheet starts at the page origin instead of being offset by
+     the sidebar's width. `header.flex` matches MobileTopBar (which
+     carries `class="flex md:hidden"`) without hitting the sheet's own
+     <header class="masthead">. */
+  aside,
+  nav,
+  header.flex,
+  [role="status"],
+  [role="tablist"],
+  [data-print-hide],
+  .report-toolbar {
+    display: none !important;
+  }
+
+  /* Collapse the layout's flex containers so .sheet sits at the page
+     origin and stays in normal flow (position:absolute would break
+     pagination for long reports). */
+  body,
+  body > div,
+  body > div > div,
+  main,
+  .report-stage {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    min-height: 0 !important;
+    height: auto !important;
+    width: auto !important;
+    max-width: none !important;
+    gap: 0 !important;
+  }
+
+  .sheet {
+    width: 210mm !important;
+    max-width: none !important;
+    min-height: 297mm !important;
+    padding: 18mm 16mm !important;
+    margin: 0 !important;
+    background: white !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* The decorative paper-grain pseudo overlays accent radial gradients
+     that flatten poorly when printed — drop it. */
+  .sheet::before { display: none !important; }
+
+  /* Preserve gradient washes, accent fills, and avatar tints in the
+     PDF. Without these, Chrome strips backgrounds and every coloured
+     element collapses to white. */
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Pagination hints — keep section heads with their first row of
+     content when the report runs onto a second page. */
+  .sheet h2,
+  .sheet .kicker { break-after: avoid-page; }
+  .sheet .section { break-after: avoid-page; }
+}

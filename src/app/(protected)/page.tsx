@@ -7,6 +7,7 @@ import { MiniStat } from "@/components/ui/mini-stat";
 import { SectionHeader } from "@/components/ui/section-header";
 import { GroupCard, type GroupCardMember } from "@/components/ui/group-card";
 import { ExpenseRow } from "@/components/ui/expense-row";
+import { ReportsCtaCard } from "@/components/ui/reports-cta-card";
 import { I } from "@/components/ui/icons";
 import { firstName } from "@/lib/format";
 
@@ -412,6 +413,10 @@ export default async function DashboardPage() {
               })}
             </div>
           )}
+
+          {/* Monthly statement — visible only once there's at least one
+              group worth reporting on. */}
+          {groups.length > 0 && <ReportsCtaCard />}
 
           {/* Recent */}
           <SectionHeader
