@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Avatar } from "./avatar";
 import { BalanceRibbon } from "./balance-ribbon";
 import { I } from "./icons";
@@ -22,6 +22,7 @@ export type TabExpense = {
   amount: number;
   paid_by: string;
   paid_by_name: string;
+  is_settlement: boolean;
   can_edit: boolean;
   edit_href: string;
   tags?: { id: string; name: string; color: string }[];
@@ -121,119 +122,472 @@ function EmptyState({ title, sub }: { title: string; sub?: string }) {
 }
 
 function ExpensesTab({ expenses, groupId }: { expenses: TabExpense[]; groupId: string }) {
-  if (expenses.length === 0) {
-    return (
-      <div className="card" style={{ overflow: "hidden" }}>
-        <EmptyState title="No expenses yet" sub="When someone adds one, it'll appear here." />
-      </div>
-    );
+  const [filterTags, setFilterTags]       = useState<string[]>([]);
+  const [filterPaidBy, setFilterPaidBy]   = useState("");
+  const [filterDesc, setFilterDesc]       = useState("");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo]   = useState("");
+  const [filtersOpen, setFiltersOpen]     = useState(false);
+  const [exportOpen, setExportOpen]       = useState(false);
+  const panelRef  = useRef<HTMLDivElement>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
+
+  // Derive unique tags and payers from the full expense list.
+  const allTags = [...new Map(
+    expenses.flatMap((e) => e.tags ?? []).map((t) => [t.id, t])
+  ).values()].sort((a, b) => a.name.localeCompare(b.name));
+
+  const allPayers = [...new Map(
+    expenses.map((e) => [e.paid_by, e.paid_by_name])
+  ).entries()]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Apply all active filters.
+  const filtered = expenses.filter((e) => {
+    if (filterTags.length > 0) {
+      const expTagIds = (e.tags ?? []).map((t) => t.id);
+      if (!filterTags.some((tid) => expTagIds.includes(tid))) return false;
+    }
+    if (filterPaidBy && e.paid_by !== filterPaidBy) return false;
+    if (filterDesc && !e.description.toLowerCase().includes(filterDesc.toLowerCase())) return false;
+    if (filterDateFrom && e.date < filterDateFrom) return false;
+    if (filterDateTo && e.date > filterDateTo) return false;
+    return true;
+  });
+
+  const activeCount =
+    (filterTags.length > 0 ? 1 : 0) +
+    (filterPaidBy ? 1 : 0) +
+    (filterDesc ? 1 : 0) +
+    (filterDateFrom || filterDateTo ? 1 : 0);
+  const isFiltered = activeCount > 0;
+
+  function clearFilters() {
+    setFilterTags([]);
+    setFilterPaidBy("");
+    setFilterDesc("");
+    setFilterDateFrom("");
+    setFilterDateTo("");
   }
+
+  function toggleTag(id: string) {
+    setFilterTags((prev) => prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]);
+  }
+
+  // Build the ids query param when filters are active.
+  const idsParam = isFiltered ? `&ids=${filtered.map((e) => e.id).join(",")}` : "";
+
+  // Close filter panel on outside click.
+  useEffect(() => {
+    if (!filtersOpen) return;
+    function handle(e: MouseEvent) {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) setFiltersOpen(false);
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [filtersOpen]);
+
+  // Close export dropdown on outside click.
+  useEffect(() => {
+    if (!exportOpen) return;
+    function handle(e: MouseEvent) {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) setExportOpen(false);
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [exportOpen]);
+
   return (
-    <div className="card" style={{ overflow: "hidden", padding: 0 }}>
-      {expenses.map((e, i) => {
-        const day = new Date(e.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
-        return (
-          <div
-            key={e.id}
+    <div>
+      {/* ── Filter controls ───────────────────────────────── */}
+      <div ref={panelRef} style={{ marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: filtersOpen ? 10 : 0 }}>
+          {/* Filter toggle */}
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((v) => !v)}
             style={{
-              padding: "16px 18px",
-              display: "flex",
+              display: "inline-flex",
               alignItems: "center",
-              gap: 14,
-              borderBottom: i === expenses.length - 1 ? "none" : "1px solid var(--rule-2)",
+              gap: 6,
+              padding: "5px 12px",
+              borderRadius: 8,
+              border: "1px solid",
+              borderColor: isFiltered ? "var(--accent)" : "var(--rule-strong, #1c1c22)",
+              background: isFiltered
+                ? "color-mix(in oklch, var(--accent) 10%, transparent)"
+                : "var(--surface-warm, #111114)",
+              color: isFiltered ? "var(--accent)" : "var(--ink-3)",
+              fontSize: 11,
+              fontFamily: "var(--font-mono)",
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              cursor: "pointer",
             }}
           >
-            <Avatar name={e.paid_by_name} id={e.paid_by} size={36} />
-            <div style={{ flex: 1, minWidth: 0 }}>
+            <I.filter size={11} />
+            Filter
+            {activeCount > 0 && (
+              <span style={{
+                background: "var(--accent)",
+                color: "#000",
+                borderRadius: 999,
+                padding: "1px 6px",
+                fontSize: 10,
+                fontWeight: 700,
+                lineHeight: 1.4,
+              }}>
+                {activeCount}
+              </span>
+            )}
+          </button>
+
+          {/* Export dropdown */}
+          <div ref={exportRef} style={{ position: "relative" }}>
+            <button
+              type="button"
+              onClick={() => setExportOpen((v) => !v)}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "5px 12px",
+                borderRadius: 8,
+                border: "1px solid var(--rule-strong, #1c1c22)",
+                background: "var(--surface-warm, #111114)",
+                color: "var(--ink-3)",
+                fontSize: 11,
+                fontFamily: "var(--font-mono)",
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+                cursor: "pointer",
+              }}
+            >
+              <I.download size={11} />
+              Export{isFiltered ? ` (${filtered.length})` : ""}
+              <I.chevronD size={10} />
+            </button>
+
+            {exportOpen && (
               <div
+                role="menu"
                 style={{
-                  fontSize: 14.5,
-                  fontWeight: 450,
-                  color: "var(--ink)",
-                  whiteSpace: "nowrap",
+                  position: "absolute",
+                  top: "calc(100% + 6px)",
+                  left: 0,
+                  zIndex: 50,
+                  minWidth: 130,
+                  borderRadius: 10,
+                  border: "1px solid var(--rule-strong, #1c1c22)",
+                  background: "var(--card, #111114)",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
                   overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  letterSpacing: "-0.005em",
+                  padding: "4px 0",
                 }}
               >
-                {e.description}
+                {(["json", "csv", "xlsx", "pdf"] as const).map((fmt) => (
+                  <a
+                    key={fmt}
+                    role="menuitem"
+                    href={`/api/groups/${groupId}/export?format=${fmt}${idsParam}`}
+                    download
+                    onClick={() => setExportOpen(false)}
+                    style={{
+                      display: "block",
+                      padding: "8px 14px",
+                      fontSize: 13,
+                      fontWeight: 500,
+                      color: "var(--ink)",
+                      textDecoration: "none",
+                      textTransform: "uppercase",
+                      fontFamily: "var(--font-mono)",
+                      letterSpacing: "0.06em",
+                    }}
+                    className="export-fmt-option"
+                  >
+                    {fmt === "xlsx" ? "Excel" : fmt.toUpperCase()}
+                  </a>
+                ))}
               </div>
-              <div
-                style={{
-                  fontSize: 11.5,
-                  color: "var(--ink-3)",
-                  marginTop: 3,
-                  display: "flex",
-                  gap: 8,
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                }}
-              >
-                <span>{firstName(e.paid_by_name)} paid</span>
-                <span style={{ width: 2, height: 2, borderRadius: "50%", background: "var(--ink-4)" }} />
-                <span className="mono">{day}</span>
-              </div>
-              {e.tags && e.tags.length > 0 && (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
-                  {e.tags.map((t) => (
-                    <span
-                      key={t.id}
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        padding: "2px 7px",
-                        borderRadius: 999,
-                        background: t.color + "22",
-                        border: `1px solid ${t.color}55`,
-                        color: t.color,
-                        fontSize: 10.5,
-                        fontWeight: 500,
-                        letterSpacing: "-0.01em",
-                      }}
-                    >
-                      {t.name}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="serif tnum" style={{ fontSize: 20, color: "var(--ink)", letterSpacing: "-0.01em" }}>
-              {formatInr(e.amount)}
-            </div>
-            {e.can_edit && (
-              <a
-                href={e.edit_href}
-                className="mono"
+            )}
+          </div>
+
+          {isFiltered && (
+            <>
+              <span className="mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>
+                {filtered.length} of {expenses.length}
+              </span>
+              <span style={{ width: 2, height: 2, borderRadius: "50%", background: "var(--ink-4)", flexShrink: 0 }} />
+              <span className="mono tnum" style={{ fontSize: 11, color: "var(--ink-2)", fontWeight: 500 }}>
+                {formatInr(filtered.filter((e) => !e.is_settlement).reduce((sum, e) => sum + e.amount, 0))}
+              </span>
+              <button
+                type="button"
+                onClick={clearFilters}
                 style={{
                   fontSize: 11,
                   color: "var(--ink-3)",
-                  textDecoration: "none",
-                  letterSpacing: "0.08em",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  fontFamily: "var(--font-mono)",
+                  letterSpacing: "0.06em",
                   textTransform: "uppercase",
-                  padding: "6px 8px",
+                  textDecoration: "underline",
+                  padding: 0,
                 }}
               >
-                Edit
-              </a>
+                Clear
+              </button>
+            </>
+          )}
+        </div>
+
+        {filtersOpen && (
+          <div style={{
+            padding: "14px 16px",
+            borderRadius: 12,
+            border: "1px solid var(--rule-strong, #1c1c22)",
+            background: "var(--card, #111114)",
+            display: "flex",
+            flexDirection: "column",
+            gap: 14,
+          }}>
+            {/* Tags */}
+            {allTags.length > 0 && (
+              <div>
+                <div className="eyebrow" style={{ marginBottom: 8 }}>Tags</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {allTags.map((t) => {
+                    const active = filterTags.includes(t.id);
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => toggleTag(t.id)}
+                        style={{
+                          padding: "3px 10px",
+                          borderRadius: 999,
+                          border: `1px solid ${active ? t.color : t.color + "55"}`,
+                          background: active ? t.color + "33" : t.color + "11",
+                          color: t.color,
+                          fontSize: 12,
+                          fontWeight: active ? 600 : 400,
+                          cursor: "pointer",
+                          transition: "all 0.12s",
+                        }}
+                      >
+                        {t.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )}
+
+            {/* Paid by · Description · From · To */}
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
+              gap: 10,
+            }}>
+              <div>
+                <div className="eyebrow" style={{ marginBottom: 6 }}>Paid by</div>
+                <select
+                  value={filterPaidBy}
+                  onChange={(e) => setFilterPaidBy(e.target.value)}
+                  className="input-warm"
+                  style={{ fontSize: 13, padding: "6px 10px", width: "100%" }}
+                >
+                  <option value="">All members</option>
+                  {allPayers.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <div className="eyebrow" style={{ marginBottom: 6 }}>Description</div>
+                <input
+                  type="text"
+                  value={filterDesc}
+                  onChange={(e) => setFilterDesc(e.target.value)}
+                  placeholder="Contains…"
+                  className="input-warm"
+                  style={{ fontSize: 13, padding: "6px 10px", width: "100%" }}
+                />
+              </div>
+
+              <div>
+                <div className="eyebrow" style={{ marginBottom: 6 }}>From</div>
+                <input
+                  type="date"
+                  value={filterDateFrom}
+                  onChange={(e) => setFilterDateFrom(e.target.value)}
+                  className="input-warm"
+                  style={{ fontSize: 13, padding: "6px 10px", width: "100%" }}
+                />
+              </div>
+
+              <div>
+                <div className="eyebrow" style={{ marginBottom: 6 }}>To</div>
+                <input
+                  type="date"
+                  value={filterDateTo}
+                  onChange={(e) => setFilterDateTo(e.target.value)}
+                  className="input-warm"
+                  style={{ fontSize: 13, padding: "6px 10px", width: "100%" }}
+                />
+              </div>
+            </div>
           </div>
-        );
-      })}
-      <div style={{ borderTop: "1px solid var(--rule-2)", padding: "10px 14px", textAlign: "right" }}>
-        <a
-          href={`/groups/${groupId}/expenses/new`}
-          className="mono"
-          style={{
-            fontSize: 11,
-            color: "var(--accent)",
-            textDecoration: "none",
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-          }}
-        >
-          + Add expense
-        </a>
+        )}
       </div>
+
+      {/* ── Expense list ──────────────────────────────────── */}
+      <div className="card" style={{ overflow: "hidden", padding: 0 }}>
+        {filtered.length === 0 ? (
+          <EmptyState
+            title={isFiltered ? "No matching expenses" : "No expenses yet"}
+            sub={isFiltered ? "Try adjusting your filters." : "When someone adds one, it'll appear here."}
+          />
+        ) : (
+          filtered.map((e, i) => {
+            const day = new Date(e.date).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+            return (
+              <div
+                key={e.id}
+                style={{
+                  padding: "16px 18px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  borderBottom: i === filtered.length - 1 ? "none" : "1px solid var(--rule-2)",
+                  background: e.is_settlement
+                    ? "color-mix(in oklch, var(--accent) 4%, transparent)"
+                    : "transparent",
+                }}
+              >
+                <Avatar name={e.paid_by_name} id={e.paid_by} size={36} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                    <div
+                      style={{
+                        fontSize: 14.5,
+                        fontWeight: 450,
+                        color: "var(--ink)",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        letterSpacing: "-0.005em",
+                      }}
+                    >
+                      {e.description}
+                    </div>
+                    {e.is_settlement && (
+                      <span style={{
+                        flexShrink: 0,
+                        fontSize: 9,
+                        fontFamily: "var(--font-mono)",
+                        letterSpacing: "0.08em",
+                        textTransform: "uppercase",
+                        padding: "2px 6px",
+                        borderRadius: 999,
+                        background: "color-mix(in oklch, var(--accent) 15%, transparent)",
+                        color: "var(--accent)",
+                        border: "1px solid color-mix(in oklch, var(--accent) 30%, transparent)",
+                      }}>
+                        Settlement
+                      </span>
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 11.5,
+                      color: "var(--ink-3)",
+                      marginTop: 3,
+                      display: "flex",
+                      gap: 8,
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <span>{firstName(e.paid_by_name)} paid</span>
+                    <span style={{ width: 2, height: 2, borderRadius: "50%", background: "var(--ink-4)" }} />
+                    <span className="mono">{day}</span>
+                  </div>
+                  {!e.is_settlement && e.tags && e.tags.length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+                      {e.tags.map((t) => (
+                        <span
+                          key={t.id}
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            padding: "2px 7px",
+                            borderRadius: 999,
+                            background: t.color + "22",
+                            border: `1px solid ${t.color}55`,
+                            color: t.color,
+                            fontSize: 10.5,
+                            fontWeight: 500,
+                            letterSpacing: "-0.01em",
+                          }}
+                        >
+                          {t.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div
+                  className="serif tnum"
+                  style={{
+                    fontSize: 20,
+                    color: e.is_settlement ? "var(--accent)" : "var(--ink)",
+                    letterSpacing: "-0.01em",
+                  }}
+                >
+                  {formatInr(e.amount)}
+                </div>
+                {e.can_edit && (
+                  <a
+                    href={e.edit_href}
+                    className="mono"
+                    style={{
+                      fontSize: 11,
+                      color: "var(--ink-3)",
+                      textDecoration: "none",
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      padding: "6px 8px",
+                    }}
+                  >
+                    Edit
+                  </a>
+                )}
+              </div>
+            );
+          })
+        )}
+        <div style={{ borderTop: "1px solid var(--rule-2)", padding: "10px 14px", textAlign: "right" }}>
+          <a
+            href={`/groups/${groupId}/expenses/new`}
+            className="mono"
+            style={{
+              fontSize: 11,
+              color: "var(--accent)",
+              textDecoration: "none",
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+            }}
+          >
+            + Add expense
+          </a>
+        </div>
+      </div>
+      <style>{`.export-fmt-option:hover { background: var(--surface-warm, #0c0c0f); }`}</style>
     </div>
   );
 }

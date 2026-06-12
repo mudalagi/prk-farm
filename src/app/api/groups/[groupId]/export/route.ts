@@ -50,7 +50,8 @@ type ExportData = {
 
 async function fetchExportData(
   groupId: string,
-  tenantId: string
+  tenantId: string,
+  ids: string[] | null
 ): Promise<ExportData | null> {
   const supabase = await createClient();
 
@@ -95,7 +96,7 @@ async function fetchExportData(
     expense_tags: { tag_id: string }[];
   };
 
-  const { data: expensesRaw } = await supabase
+  let expensesQuery = supabase
     .from("expenses")
     .select(
       "id, description, amount, date, paid_by, created_by, created_at, updated_at, expense_splits(user_id, share_pct, share_amount), expense_tags(tag_id)"
@@ -103,6 +104,8 @@ async function fetchExportData(
     .eq("group_id", groupId)
     .order("date", { ascending: false })
     .order("created_at", { ascending: false });
+  if (ids && ids.length > 0) expensesQuery = expensesQuery.in("id", ids);
+  const { data: expensesRaw } = await expensesQuery;
 
   // Fallback without tags join if migration hasn't been applied yet.
   const expenses: Expense[] = ((expensesRaw ?? []) as unknown as ExpenseRaw[]).map(
@@ -435,7 +438,10 @@ export async function GET(
   { params }: { params: Promise<{ groupId: string }> }
 ) {
   const { groupId } = await params;
-  const format = new URL(req.url).searchParams.get("format") ?? "json";
+  const url = new URL(req.url);
+  const format = url.searchParams.get("format") ?? "json";
+  const idsRaw = url.searchParams.get("ids");
+  const ids = idsRaw ? idsRaw.split(",").filter(Boolean) : null;
 
   const user = await getCurrentUser();
   if (!user)
@@ -445,7 +451,7 @@ export async function GET(
   if (!tenantId)
     return NextResponse.json({ error: "No active tenant" }, { status: 400 });
 
-  const data = await fetchExportData(groupId, tenantId);
+  const data = await fetchExportData(groupId, tenantId, ids);
   if (!data)
     return NextResponse.json({ error: "Group not found" }, { status: 404 });
 

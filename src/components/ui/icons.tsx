@@ -24,6 +24,7 @@ function base({ size = 16, sw = 1.5, children, ...rest }: IconProps & { children
 }
 
 export const I = {
+  filter: (p: IconProps) => base({ ...p, children: <><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" /></> }),
   plus: (p: IconProps) => base({ ...p, children: <path d="M12 5v14M5 12h14" /> }),
   arrow: (p: IconProps) => base({ ...p, children: <path d="M5 12h14M13 6l6 6-6 6" /> }),
   arrowDown: (p: IconProps) => base({ ...p, children: <path d="M12 5v14M6 13l6 6 6-6" /> }),

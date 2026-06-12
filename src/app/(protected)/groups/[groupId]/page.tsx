@@ -53,14 +53,27 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
       .eq("group_id", groupId),
     supabase
       .from("expenses")
-      .select("id, description, date, amount, paid_by, created_by, profiles!expenses_paid_by_fkey(display_name), expense_tags(tag_id, tags(id, name, color))")
+      .select("id, description, date, amount, paid_by, created_by, is_settlement, profiles!expenses_paid_by_fkey(display_name), expense_tags(tag_id, tags(id, name, color))")
       .eq("group_id", groupId)
       .order("date", { ascending: false })
       .order("created_at", { ascending: false })
-      .then((res) => {
-        // If expense_tags table is missing (migration not yet applied) fall back
-        // to the query without the join so existing expenses still render.
-        if (res.error && /expense_tags|relationship/.test(res.error.message)) {
+      .then(async (res) => {
+        if (!res.error) return res;
+        const msg = res.error.message;
+
+        // is_settlement column missing — retry without it (keeps expense_tags).
+        if (/is_settlement/.test(msg)) {
+          const r2 = await supabase
+            .from("expenses")
+            .select("id, description, date, amount, paid_by, created_by, profiles!expenses_paid_by_fkey(display_name), expense_tags(tag_id, tags(id, name, color))")
+            .eq("group_id", groupId)
+            .order("date", { ascending: false })
+            .order("created_at", { ascending: false });
+          if (!r2.error) return r2;
+        }
+
+        // expense_tags table missing — retry without joins.
+        if (/expense_tags|relationship/.test(msg)) {
           return supabase
             .from("expenses")
             .select("id, description, date, amount, paid_by, created_by, profiles!expenses_paid_by_fkey(display_name)")
@@ -68,6 +81,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
             .order("date", { ascending: false })
             .order("created_at", { ascending: false });
         }
+
         return res;
       }),
     supabase.from("group_balances").select("*").eq("group_id", groupId),
@@ -91,6 +105,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
     amount: number;
     paid_by: string;
     created_by: string;
+    is_settlement: boolean;
     profiles: { display_name: string } | null;
     expense_tags: { tag_id: string; tags: { id: string; name: string; color: string } | null }[];
   };
@@ -121,6 +136,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
     amount: Number(e.amount),
     paid_by: e.paid_by,
     paid_by_name: e.profiles?.display_name ?? "Unknown",
+    is_settlement: e.is_settlement ?? false,
     can_edit: e.created_by === user.id || isTenantOwner,
     edit_href: `/groups/${groupId}/expenses/${e.id}/edit`,
     tags: (e.expense_tags ?? [])
@@ -129,7 +145,8 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
   }));
 
   const transfers = simplifyTransfers(balances);
-  const total = expenses.reduce((a, e) => a + e.amount, 0);
+  // Exclude settlements from the total farm spend figure.
+  const total = expenses.filter((e) => !e.is_settlement).reduce((a, e) => a + e.amount, 0);
   const myBal = netById.get(user.id) ?? 0;
   const updatedLabel = formatUpdatedAt(group.updated_at);
 
@@ -248,6 +265,9 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
                 <I.users size={14} /> Add member
               </Link>
             )}
+            <Link href={`/groups/${groupId}/settle`} className="btn btn-ghost">
+              <I.arrow size={14} /> Settle
+            </Link>
             <Link href={`/groups/${groupId}/edit`} className="btn btn-ghost">
               <I.edit size={14} /> Edit group
             </Link>

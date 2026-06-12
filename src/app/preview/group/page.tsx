@@ -58,6 +58,7 @@ export default function PreviewGroupPage() {
       amount: e.amount,
       paid_by: payer.id,
       paid_by_name: payer.name,
+      is_settlement: false,
       can_edit: payer.id === CURRENT_USER_ID,
       edit_href: "#",
     };
