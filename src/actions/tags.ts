@@ -93,3 +93,21 @@ export async function updateTagAction(
 
   return { tag: data as Tag };
 }
+
+export async function deleteTagAction(tagId: string): Promise<{ error?: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const tenantId = await getActiveTenantId();
+  if (!tenantId) return { error: "No active tenant" };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("tags")
+    .delete()
+    .eq("id", tagId)
+    .eq("tenant_id", tenantId);
+
+  if (error) return { error: error.message };
+  return {};
+}

@@ -196,3 +196,44 @@ export async function setOwnership(
   revalidatePath(`/groups/${groupId}`);
   redirect(`/groups/${groupId}`);
 }
+
+export type MemberNameResult = { error?: string; success?: boolean };
+
+export async function updateMemberDisplayName(
+  memberId: string,
+  name: string,
+): Promise<MemberNameResult> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not authenticated" };
+
+  const tenantId = await getActiveTenantId();
+  if (!tenantId) return { error: "No active tenant" };
+
+  if (!(await canManageTenant(tenantId))) {
+    return { error: "Only a tenant admin can edit member names" };
+  }
+
+  const trimmed = name.trim();
+  if (!trimmed) return { error: "Name cannot be empty" };
+  if (trimmed.length > 80) return { error: "Name must be 80 characters or fewer" };
+
+  const supabase = await createClient();
+  const { data: membership } = await supabase
+    .from("tenant_members")
+    .select("user_id")
+    .eq("tenant_id", tenantId)
+    .eq("user_id", memberId)
+    .maybeSingle();
+  if (!membership) return { error: "Member not found in this tenant" };
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("profiles")
+    .update({ display_name: trimmed })
+    .eq("id", memberId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath("/groups");
+  return { success: true };
+}
