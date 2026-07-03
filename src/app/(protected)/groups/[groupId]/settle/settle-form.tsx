@@ -24,17 +24,21 @@ export function SettleForm({ groupId, members, currentUserId, balanceMap }: Prop
   const [toId, setToId] = useState(defaultTo);
   const [amount, setAmount] = useState("");
 
-  // Pre-fill amount when from/to changes
+  // Pre-fill amount when from/to changes.
+  // group_balances stores ONE row per pair with net_amount > 0 (nets both directions).
+  // Key format: "debtor_id:creditor_id" — from=debtor, to=creditor is the natural direction.
+  // Also check the reverse so we surface the balance even if direction is flipped.
   useEffect(() => {
-    const suggested = balanceMap[`${fromId}:${toId}`];
-    if (suggested && suggested > 0) {
-      setAmount(String(suggested));
+    const forward = balanceMap[`${fromId}:${toId}`]; // from owes to
+    if (forward && forward > 0) {
+      setAmount(String(forward));
     } else {
       setAmount("");
     }
   }, [fromId, toId, balanceMap]);
 
-  const suggested = balanceMap[`${fromId}:${toId}`];
+  const forwardBalance = balanceMap[`${fromId}:${toId}`]; // from owes to → natural settlement
+  const reverseBalance = balanceMap[`${toId}:${fromId}`]; // to owes from → reversed direction
   const fromName = members.find((m) => m.id === fromId)?.name ?? "";
   const toName = members.find((m) => m.id === toId)?.name ?? "";
 
@@ -88,20 +92,29 @@ export function SettleForm({ groupId, members, currentUserId, balanceMap }: Prop
           onChange={(e) => setAmount(e.target.value)}
           className="input-warm"
         />
-        {suggested && suggested > 0 && fromId !== toId && (
-          <p style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 6, lineHeight: 1.4 }}>
-            Current balance: {fromName} owes {toName}{" "}
-            <span style={{ color: "var(--accent)", fontWeight: 500 }}>
-              ₹{suggested.toLocaleString("en-IN")}
-            </span>
-          </p>
-        )}
         {fromId === toId && (
           <p style={{ fontSize: 12, color: "var(--neg)", marginTop: 6 }}>
             From and To must be different members.
           </p>
         )}
-        {suggested === undefined && fromId !== toId && (
+        {fromId !== toId && forwardBalance && forwardBalance > 0 && (
+          <p style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 6, lineHeight: 1.4 }}>
+            Outstanding: {fromName} owes {toName}{" "}
+            <span style={{ color: "var(--accent)", fontWeight: 500 }}>
+              ₹{forwardBalance.toLocaleString("en-IN")}
+            </span>
+          </p>
+        )}
+        {fromId !== toId && !forwardBalance && reverseBalance && reverseBalance > 0 && (
+          <p style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 6, lineHeight: 1.4 }}>
+            Outstanding:{" "}
+            <span style={{ color: "var(--accent)", fontWeight: 500 }}>
+              {toName} owes {fromName} ₹{reverseBalance.toLocaleString("en-IN")}
+            </span>
+            {" "}— consider swapping From / To.
+          </p>
+        )}
+        {fromId !== toId && !forwardBalance && !reverseBalance && (
           <p style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 6 }}>
             No outstanding balance between these members.
           </p>

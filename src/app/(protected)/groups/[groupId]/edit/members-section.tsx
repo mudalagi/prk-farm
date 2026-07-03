@@ -276,7 +276,7 @@ export function MembersSection({ groupId, initialMembers }: Props) {
                   value={m.ownershipPct || ""}
                   onChange={(e) => setOwnershipPct(m.userId, e.target.value)}
                   style={{
-                    width: 64, textAlign: "right",
+                    width: 90, textAlign: "right",
                     background: "var(--surface-2)",
                     border: "1px solid var(--rule)", borderRadius: 8,
                     padding: "5px 8px", fontSize: 13, color: "var(--ink)", outline: "none",
