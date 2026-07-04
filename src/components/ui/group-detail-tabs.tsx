@@ -37,6 +37,7 @@ type Props = {
   expenses: TabExpense[];
   members: TabMember[];
   transfers: TabTransfer[];
+  rawTransfers: TabTransfer[];
   currentUserId: string;
   groupId: string;
 };
@@ -46,6 +47,7 @@ export function GroupDetailTabs({
   expenses,
   members,
   transfers,
+  rawTransfers,
   currentUserId,
   groupId,
 }: Props) {
@@ -100,7 +102,7 @@ export function GroupDetailTabs({
         <MembersTab members={members} hovered={hovered} setHovered={setHovered} currentUserId={currentUserId} />
       )}
       {tab === "balances" && (
-        <BalancesTab transfers={transfers} members={members} currentUserId={currentUserId} />
+        <BalancesTab transfers={transfers} rawTransfers={rawTransfers} members={members} currentUserId={currentUserId} />
       )}
     </>
   );
@@ -653,25 +655,27 @@ function MembersTab({
 
 function BalancesTab({
   transfers,
+  rawTransfers,
   members,
   currentUserId,
 }: {
   transfers: TabTransfer[];
+  rawTransfers: TabTransfer[];
   members: TabMember[];
   currentUserId: string;
 }) {
   const [sel, setSel] = useState<string | null>(null);
+  const [mode, setMode] = useState<"minimized" | "actual">("minimized");
   const memberById = new Map(members.map((m) => [m.id, m]));
+
+  const active = mode === "minimized" ? transfers : rawTransfers;
 
   return (
     <div
-      style={{
-        display: "grid",
-        gap: 16,
-        gridTemplateColumns: "minmax(260px, 320px) 1fr",
-      }}
+      style={{ display: "grid", gap: 16, gridTemplateColumns: "minmax(260px, 320px) 1fr" }}
       className="balances-grid"
     >
+      {/* Left: ribbon diagram */}
       <div
         style={{
           padding: 20,
@@ -685,9 +689,9 @@ function BalancesTab({
         }}
       >
         <div className="eyebrow">Who owes whom</div>
-        {transfers.length > 0 ? (
+        {active.length > 0 ? (
           <BalanceRibbon
-            transfers={transfers}
+            transfers={active}
             members={members.map((m) => ({ id: m.id, name: m.name }))}
             size={260}
             highlightId={sel}
@@ -702,31 +706,83 @@ function BalancesTab({
             </div>
           </div>
         )}
-        {transfers.length > 0 && (
+        {active.length > 0 && (
           <div style={{ fontSize: 11, color: "var(--ink-3)", fontFamily: "var(--font-mono)" }}>
-            {transfers.length} simplified transfers
+            {active.length} {mode === "minimized" ? "simplified" : "actual"} transfer{active.length !== 1 ? "s" : ""}
           </div>
         )}
       </div>
 
+      {/* Right: settlement plan */}
       <div className="card" style={{ overflow: "hidden" }}>
         <div
           style={{
-            padding: "14px 18px",
+            padding: "12px 18px",
             borderBottom: "1px solid var(--rule-2)",
             display: "flex",
+            alignItems: "center",
             justifyContent: "space-between",
           }}
         >
           <span className="eyebrow">Settlement plan</span>
-          <span className="mono" style={{ fontSize: 11, color: "var(--ink-3)" }}>
-            minimized
-          </span>
+
+          {/* Mode toggle pill */}
+          <div
+            style={{
+              display: "flex",
+              gap: 2,
+              padding: 3,
+              borderRadius: 999,
+              background: "var(--surface-2)",
+              border: "1px solid var(--rule)",
+            }}
+          >
+            {(["minimized", "actual"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                style={{
+                  padding: "3px 10px",
+                  borderRadius: 999,
+                  border: "none",
+                  fontSize: 10,
+                  fontFamily: "var(--font-mono)",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  cursor: "pointer",
+                  fontWeight: mode === m ? 600 : 400,
+                  background: mode === m ? "var(--accent)" : "transparent",
+                  color: mode === m ? "#000" : "var(--ink-3)",
+                  transition: "background 0.15s, color 0.15s",
+                }}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
         </div>
-        {transfers.length === 0 ? (
+
+        {/* Explanation for actual mode */}
+        {mode === "actual" && active.length > 0 && (
+          <div
+            style={{
+              padding: "8px 18px",
+              borderBottom: "1px solid var(--rule-2)",
+              fontSize: 11,
+              color: "var(--ink-3)",
+              fontFamily: "var(--font-mono)",
+              letterSpacing: "0.04em",
+            }}
+          >
+            Raw pairwise balances — more transfers, same total money moved.
+          </div>
+        )}
+
+        {active.length === 0 ? (
           <EmptyState title="All square" sub="No transfers needed." />
         ) : (
-          transfers.map((t, i) => {
+          active.map((t, i) => {
             const from = memberById.get(t.from);
             const to = memberById.get(t.to);
             if (!from || !to) return null;
@@ -742,18 +798,17 @@ function BalancesTab({
                   display: "flex",
                   alignItems: "center",
                   gap: 12,
-                  borderBottom: i === transfers.length - 1 ? "none" : "1px solid var(--rule-2)",
-                  background: involvesMe ? "color-mix(in oklch, var(--accent-wash) 60%, transparent)" : "transparent",
+                  borderBottom: i === active.length - 1 ? "none" : "1px solid var(--rule-2)",
+                  background: involvesMe
+                    ? "color-mix(in oklch, var(--accent-wash) 60%, transparent)"
+                    : "transparent",
                 }}
               >
                 <Avatar name={from.name} id={from.id} size={28} />
                 <span style={{ fontSize: 13, color: "var(--ink-2)" }}>{firstName(from.name)}</span>
                 <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 4, color: "var(--ink-4)" }}>
                   <div style={{ flex: 1, height: 1, background: "var(--rule)" }} />
-                  <span
-                    className="mono"
-                    style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em" }}
-                  >
+                  <span className="mono" style={{ fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em" }}>
                     pays
                   </span>
                   <div style={{ flex: 1, height: 1, background: "var(--rule)" }} />

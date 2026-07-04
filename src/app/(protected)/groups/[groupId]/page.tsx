@@ -9,34 +9,9 @@ import { GroupDetailTabs, type TabMember, type TabExpense, type TabTransfer } fr
 import { I } from "@/components/ui/icons";
 import { formatInr, formatInrSigned, formatUpdatedAt } from "@/lib/format";
 import { ImportExportButtons } from "@/components/import-export-buttons";
+import { simplifyTransfers } from "@/lib/simplify-transfers";
 
 type BalanceRow = { group_id: string; creditor_id: string; debtor_id: string; net_amount: number };
-
-// Turn pairwise (creditor, debtor, amount) rows into a minimized list of
-// transfers using the greedy creditor/debtor matching from the spec.
-function simplifyTransfers(balances: BalanceRow[]): TabTransfer[] {
-  const net = new Map<string, number>();
-  for (const b of balances) {
-    net.set(b.creditor_id, (net.get(b.creditor_id) ?? 0) + Number(b.net_amount));
-    net.set(b.debtor_id, (net.get(b.debtor_id) ?? 0) - Number(b.net_amount));
-  }
-  const creditors = Array.from(net.entries()).filter(([, v]) => v > 1).sort((a, b) => b[1] - a[1]);
-  const debtors = Array.from(net.entries()).filter(([, v]) => v < -1).sort((a, b) => a[1] - b[1]);
-  const out: TabTransfer[] = [];
-  let i = 0;
-  let j = 0;
-  while (i < debtors.length && j < creditors.length) {
-    const [dId, dVal] = debtors[i];
-    const [cId, cVal] = creditors[j];
-    const amt = Math.round(Math.min(-dVal, cVal));
-    if (amt > 1) out.push({ from: dId, to: cId, amount: amt });
-    debtors[i][1] = dVal + amt;
-    creditors[j][1] = cVal - amt;
-    if (Math.abs(debtors[i][1]) < 1) i++;
-    if (Math.abs(creditors[j][1]) < 1) j++;
-  }
-  return out;
-}
 
 
 export default async function GroupDetailPage({ params }: { params: Promise<{ groupId: string }> }) {
@@ -145,6 +120,11 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
   }));
 
   const transfers = simplifyTransfers(balances);
+  // Raw pairwise: debtor pays creditor directly (no minimization).
+  const rawTransfers: TabTransfer[] = balances
+    .filter((b) => Number(b.net_amount) > 1)
+    .map((b) => ({ from: b.debtor_id, to: b.creditor_id, amount: Math.round(Number(b.net_amount)) }));
+
   // Exclude settlements from the total farm spend figure.
   const total = expenses.filter((e) => !e.is_settlement).reduce((a, e) => a + e.amount, 0);
   const myBal = netById.get(user.id) ?? 0;
@@ -316,6 +296,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ gr
             expenses={expenses}
             members={members}
             transfers={transfers}
+            rawTransfers={rawTransfers}
             currentUserId={user.id}
             groupId={groupId}
           />
