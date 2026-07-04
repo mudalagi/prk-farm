@@ -386,6 +386,56 @@ export default async function ReportsPage({
                   </div>
                 ))}
               </div>
+
+              {/* §5 By category (tag breakdown) */}
+              {data.tagStats.length > 0 && (
+                <>
+                  <div className="section">
+                    <div className="kicker">
+                      <span className="num">5</span> By category
+                    </div>
+                    <h2>
+                      Spending <em>by tag</em>.
+                    </h2>
+                    <p className="intro">
+                      Every rupee attributed to a tag or label. Expenses tagged with multiple
+                      categories appear in each one.
+                    </p>
+                  </div>
+                  <div className="tag-breakdown-list">
+                    {data.tagStats.map((tag) => {
+                      const pct = data.totalSpent > 0 ? (tag.total / data.totalSpent) * 100 : 0;
+                      const isNone = tag.id === "__none__";
+                      return (
+                        <div key={tag.id} className="tb-row">
+                          <div className="tb-label">
+                            <span
+                              className="tb-dot"
+                              style={{ background: isNone ? "var(--ink-4)" : tag.color }}
+                            />
+                            <span className={isNone ? "tb-uncategorized" : ""}>{tag.name}</span>
+                            <span className="tb-count mono">{tag.count}</span>
+                          </div>
+                          <div className="tb-track">
+                            <div
+                              className="tb-fill"
+                              style={{
+                                width: `${pct}%`,
+                                background: isNone ? "var(--ink-4)" : tag.color,
+                                opacity: isNone ? 0.45 : 0.8,
+                              }}
+                            />
+                          </div>
+                          <div className="tb-amt">
+                            <span className="mono tnum">{formatInr(tag.total)}</span>
+                            <span className="tb-pct mono">{Math.round(pct)}%</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </>
           ) : (
             <div className="empty-state">

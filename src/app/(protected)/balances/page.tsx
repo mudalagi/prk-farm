@@ -112,6 +112,18 @@ export default async function BalancesPage() {
     groupName: t.groupName,
   }));
 
+  // Raw pairwise: debtor pays creditor directly, without debt-minimization.
+  const rawLedger: LedgerRow[] = balances
+    .filter((b) => Number(b.net_amount) > 1)
+    .map((b) => ({
+      from: b.debtor_id,
+      fromName: name(b.debtor_id),
+      to: b.creditor_id,
+      toName: name(b.creditor_id),
+      amount: Math.round(Number(b.net_amount)),
+      groupName: groupNameById.get(b.group_id) ?? "Unknown",
+    }));
+
   const ribbonMembers: RibbonMember[] = Array.from(memberById.values());
 
   return (
@@ -126,6 +138,7 @@ export default async function BalancesPage() {
           net={net}
           settlements={settlements}
           ledger={ledger}
+          rawLedger={rawLedger}
           ribbonMembers={ribbonMembers}
           groupCount={groups.length}
         />

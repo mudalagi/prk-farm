@@ -524,6 +524,61 @@
    sidebar, tab-bar, mobile top bar, and toolbar can't leak into the
    PDF), and let content flow naturally across A4 pages when the report
    is long. */
+/* ───────── Tag breakdown (§5) ───────── */
+.sheet .tag-breakdown-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  background: var(--card);
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+}
+.sheet .tb-row {
+  display: grid;
+  grid-template-columns: 160px 1fr 110px;
+  gap: 12px;
+  align-items: center;
+}
+.sheet .tb-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+.sheet .tb-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.sheet .tb-uncategorized { color: var(--ink-3); font-style: italic; }
+.sheet .tb-count { font-size: 10px; color: var(--ink-4); }
+.sheet .tb-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.sheet .tb-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+.sheet .tb-amt {
+  text-align: right;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 5px;
+}
+.sheet .tb-pct { font-size: 10px; color: var(--ink-4); }
+
 @page { size: A4; margin: 0; }
 
 @media print {

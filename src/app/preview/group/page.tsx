@@ -169,6 +169,7 @@ export default function PreviewGroupPage() {
           expenses={expenses}
           members={members}
           transfers={transfers}
+          rawTransfers={[]}
           currentUserId={CURRENT_USER_ID}
           groupId={GROUP.id}
         />

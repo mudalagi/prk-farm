@@ -5,6 +5,7 @@ import { Avatar } from "./avatar";
 import { BalanceRibbon } from "./balance-ribbon";
 import { I } from "./icons";
 import { formatInr, formatInrSigned, firstName } from "@/lib/format";
+import { TagBreakdown, buildTagStats } from "./tag-breakdown";
 
 export type TabMember = {
   id: string;
@@ -442,6 +443,51 @@ function ExpensesTab({ expenses, groupId }: { expenses: TabExpense[]; groupId: s
           </div>
         )}
       </div>
+
+      {/* ── Where money went ─────────────────────────────── */}
+      {(() => {
+        const tagStats = buildTagStats(expenses);
+        if (tagStats.length === 0) return null;
+        const grandTotal = expenses.filter((e) => !e.is_settlement).reduce((s, e) => s + e.amount, 0);
+        return (
+          <details style={{ marginBottom: 16 }}>
+            <summary
+              style={{
+                cursor: "pointer",
+                listStyle: "none",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "10px 16px",
+                borderRadius: 12,
+                border: "1px solid var(--rule)",
+                background: "var(--card)",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span className="eyebrow">Where the money went</span>
+                <span className="mono" style={{ fontSize: 10, color: "var(--ink-4)" }}>
+                  {tagStats.length} {tagStats.length === 1 ? "category" : "categories"}
+                </span>
+              </div>
+              <span className="eyebrow" style={{ color: "var(--ink-4)" }}>
+                <I.chevronD size={10} />
+              </span>
+            </summary>
+            <div
+              style={{
+                padding: "16px 18px",
+                marginTop: 4,
+                borderRadius: 12,
+                border: "1px solid var(--rule)",
+                background: "var(--card)",
+              }}
+            >
+              <TagBreakdown stats={tagStats} grandTotal={grandTotal} />
+            </div>
+          </details>
+        );
+      })()}
 
       {/* ── Expense list ──────────────────────────────────── */}
       <div className="card" style={{ overflow: "hidden", padding: 0 }}>

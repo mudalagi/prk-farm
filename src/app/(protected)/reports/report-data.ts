@@ -54,6 +54,14 @@ export type ReportSettlement = {
   amount: number;
 };
 
+export type TagStat = {
+  id: string;
+  name: string;
+  color: string;
+  total: number;
+  count: number;
+};
+
 export type ReportData = {
   tenantName: string;
   range: ReportRange;
@@ -64,6 +72,7 @@ export type ReportData = {
   topExpenses: ReportExpense[]; // top 5 by amount in range
   groups: ReportGroupStat[]; // groups with activity in the period, by total desc
   settlements: ReportSettlement[];
+  tagStats: TagStat[]; // expense totals per tag for the period
   generatedAt: string; // ISO timestamp
   expenseCount: number;
 };
@@ -128,8 +137,11 @@ export async function fetchReportData(
   tenantId: string,
   range: ReportRange,
   currentUserId: string,
+  // Optional: pass a pre-created client (e.g. admin client for cron jobs).
+  // When omitted, creates a user-scoped client via cookie.
+  clientOverride?: Awaited<ReturnType<typeof createClient>>,
 ): Promise<ReportData> {
-  const supabase = await createClient();
+  const supabase = clientOverride ?? (await createClient());
 
   // The Supabase clients return user-scoped JWTs, so RLS already
   // restricts us to this tenant's data. No extra `tenant_id` filter
@@ -150,7 +162,8 @@ export async function fetchReportData(
         "id, group_id, description, amount, date, paid_by, " +
           "profiles!expenses_paid_by_fkey(display_name), " +
           "groups!inner(id, name, tenant_id), " +
-          "expense_splits(user_id, share_amount)",
+          "expense_splits(user_id, share_amount), " +
+          "expense_tags(tag_id, tags(id, name, color))",
       )
       .eq("groups.tenant_id", tenantId)
       .gte("date", range.start)
@@ -171,6 +184,7 @@ export async function fetchReportData(
     profiles: { display_name: string } | null;
     groups: { id: string; name: string; tenant_id: string } | null;
     expense_splits: { user_id: string; share_amount: number }[] | null;
+    expense_tags: { tag_id: string; tags: { id: string; name: string; color: string } | null }[] | null;
   };
 
   const memberRows = (membersRes.data ?? []) as unknown as MemberRow[];
@@ -286,6 +300,29 @@ export async function fetchReportData(
   const totalToSettle = settlements.reduce((a, s) => a + s.amount, 0);
   const myStat = members.find((m) => m.id === currentUserId) ?? null;
 
+  // Tag breakdown: sum expense amounts per tag (excluding settlements).
+  const tagMap = new Map<string, TagStat>();
+  for (const e of (expensesRes.data ?? []) as unknown as ExpenseRow[]) {
+    const row = e;
+    const amt = Number(row.amount);
+    const etags = row.expense_tags ?? [];
+    if (etags.length === 0) {
+      const cur = tagMap.get("__none__") ?? { id: "__none__", name: "Uncategorized", color: "#666", total: 0, count: 0 };
+      cur.total += amt;
+      cur.count += 1;
+      tagMap.set("__none__", cur);
+    } else {
+      for (const et of etags) {
+        if (!et.tags) continue;
+        const cur = tagMap.get(et.tags.id) ?? { id: et.tags.id, name: et.tags.name, color: et.tags.color, total: 0, count: 0 };
+        cur.total += amt;
+        cur.count += 1;
+        tagMap.set(et.tags.id, cur);
+      }
+    }
+  }
+  const tagStats: TagStat[] = Array.from(tagMap.values()).sort((a, b) => b.total - a.total);
+
   return {
     tenantName,
     range,
@@ -296,6 +333,7 @@ export async function fetchReportData(
     topExpenses,
     groups,
     settlements,
+    tagStats,
     generatedAt: new Date().toISOString(),
     expenseCount: expenseRows.length,
   };

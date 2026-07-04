@@ -30,13 +30,16 @@ type Props = {
   net: number;
   settlements: Settlement[];
   ledger: LedgerRow[];
+  rawLedger: LedgerRow[];
   ribbonMembers: RibbonMember[];
   groupCount: number;
 };
 
-export function BalancesView({ tenantName, net, settlements, ledger, ribbonMembers, groupCount }: Props) {
+export function BalancesView({ tenantName, net, settlements, ledger, rawLedger, ribbonMembers, groupCount }: Props) {
   const [showNetwork, setShowNetwork] = useState(false);
   const [hoverId, setHoverId] = useState<string | null>(null);
+  const [ledgerMode, setLedgerMode] = useState<"simplified" | "actual">("simplified");
+  const activeLedger = ledgerMode === "simplified" ? ledger : rawLedger;
 
   return (
     <div
@@ -179,7 +182,7 @@ export function BalancesView({ tenantName, net, settlements, ledger, ribbonMembe
           }}
         >
           <BalanceRibbon
-            transfers={ledger}
+            transfers={activeLedger}
             members={ribbonMembers}
             size={280}
             highlightId={hoverId}
@@ -197,41 +200,94 @@ export function BalancesView({ tenantName, net, settlements, ledger, ribbonMembe
       )}
 
       {/* Secondary: full ledger, collapsible */}
-      {ledger.length > 0 && (
+      {(ledger.length > 0 || rawLedger.length > 0) && (
         <details style={{ marginTop: 8 }}>
           <summary
             style={{
               cursor: "pointer",
               listStyle: "none",
               display: "flex",
-              alignItems: "baseline",
+              alignItems: "center",
               justifyContent: "space-between",
               padding: "12px 0",
               borderTop: "1px solid var(--rule)",
+              gap: 12,
             }}
           >
-            <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10, flex: 1 }}>
               <h2 className="serif" style={{ fontSize: 22, margin: 0, letterSpacing: "-0.015em" }}>
                 Full ledger
               </h2>
               <span className="eyebrow" style={{ color: "var(--ink-4)" }}>
-                {ledger.length} transfers across {groupCount} {groupCount === 1 ? "group" : "groups"}
+                {activeLedger.length} {ledgerMode === "simplified" ? "simplified" : "actual"} transfer{activeLedger.length !== 1 ? "s" : ""} across {groupCount} {groupCount === 1 ? "group" : "groups"}
               </span>
             </div>
-            <span className="eyebrow" style={{ color: "var(--ink-3)" }}>
+            {/* Mode toggle — stop click from collapsing the details */}
+            <div
+              onClick={(e) => e.preventDefault()}
+              style={{
+                display: "flex",
+                gap: 2,
+                padding: 3,
+                borderRadius: 999,
+                background: "var(--surface-2)",
+                border: "1px solid var(--rule)",
+              }}
+            >
+              {(["simplified", "actual"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); setLedgerMode(m); }}
+                  style={{
+                    padding: "3px 10px",
+                    borderRadius: 999,
+                    border: "none",
+                    fontSize: 10,
+                    fontFamily: "var(--font-mono)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    cursor: "pointer",
+                    fontWeight: ledgerMode === m ? 600 : 400,
+                    background: ledgerMode === m ? "var(--accent)" : "transparent",
+                    color: ledgerMode === m ? "#000" : "var(--ink-3)",
+                    transition: "background 0.15s, color 0.15s",
+                  }}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+            <span className="eyebrow" style={{ color: "var(--ink-3)", flexShrink: 0 }}>
               expand <I.chevronD size={10} />
             </span>
           </summary>
+          {ledgerMode === "actual" && activeLedger.length > 0 && (
+            <div
+              style={{
+                padding: "8px 14px",
+                marginTop: 8,
+                borderRadius: 8,
+                background: "var(--surface-2)",
+                fontSize: 11,
+                color: "var(--ink-3)",
+                fontFamily: "var(--font-mono)",
+                letterSpacing: "0.04em",
+              }}
+            >
+              Raw pairwise balances — more transfers, same total money moved.
+            </div>
+          )}
           <div
             className="card"
             style={{ borderRadius: 12, overflow: "hidden", marginTop: 12, padding: 0 }}
           >
             <LedgerHeader />
-            {ledger.map((t, i) => (
+            {activeLedger.map((t, i) => (
               <LedgerRowItem
                 key={`${t.from}-${t.to}-${t.groupName}-${i}`}
                 t={t}
-                isLast={i === ledger.length - 1}
+                isLast={i === activeLedger.length - 1}
                 onHover={setHoverId}
               />
             ))}
