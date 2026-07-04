@@ -41,11 +41,10 @@ export function Sidebar({
 
   const items: NavItem[] = [
     { href: "/", label: "Overview", Icon: I.home, match: (p) => p === "/" },
-    { href: "/groups", label: "Groups", Icon: I.users, match: (p) => p.startsWith("/groups") },
     { href: "/balances", label: "Balances", Icon: I.scale, match: (p) => p.startsWith("/balances") },
+    { href: "/groups", label: "Groups", Icon: I.users, match: (p) => p.startsWith("/groups") },
     { href: "/timeline", label: "Timeline", Icon: I.chart, match: (p) => p.startsWith("/timeline") },
     { href: "/reports", label: "Reports", Icon: I.receipt, match: (p) => p.startsWith("/reports") },
-    ...(isTenantAdmin ? [{ href: "/admin", label: "Admin", Icon: I.settings, match: (p: string) => p.startsWith("/admin") }] : []),
   ];
 
   return (
@@ -153,13 +152,31 @@ export function Sidebar({
             </Link>
           );
         })}
-      </nav>
 
-      {/* Primary action */}
-      <Link href="/groups" className="btn btn-primary" style={{ marginTop: 16, justifyContent: "center" }}>
-        <I.plus size={14} />
-        New expense
-      </Link>
+        {/* Log expense — inline accent action, not a destination */}
+        <div style={{ height: 6 }} />
+        <Link
+          href="/groups"
+          className="log-expense-nav"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "9px 10px",
+            borderRadius: 8,
+            textDecoration: "none",
+            background: "color-mix(in oklch, var(--accent) 10%, transparent)",
+            color: "var(--accent)",
+            fontSize: 13,
+            fontWeight: 500,
+            transition: "background 0.15s",
+          }}
+        >
+          <I.plus size={16} />
+          <span>Log expense</span>
+        </Link>
+        <style>{`.log-expense-nav:hover { background: color-mix(in oklch, var(--accent) 18%, transparent) !important; }`}</style>
+      </nav>
 
       <div style={{ flex: 1 }} />
 
@@ -190,7 +207,7 @@ export function Sidebar({
         </div>
       </div>
 
-      {/* Me */}
+      {/* Me + admin shortcut */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 4px" }}>
         <Avatar name={userName} id={userId} size={28} />
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -211,7 +228,30 @@ export function Sidebar({
           </div>
         </div>
         <ThemeToggle compact />
+        {isTenantAdmin && (
+          <Link
+            href="/admin"
+            title="Admin panel"
+            className="admin-icon-btn"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: 28,
+              height: 28,
+              borderRadius: 7,
+              border: "1px solid var(--rule)",
+              background: pathname.startsWith("/admin") ? "var(--card)" : "transparent",
+              color: pathname.startsWith("/admin") ? "var(--accent)" : "var(--ink-3)",
+              flexShrink: 0,
+              transition: "color 0.15s, background 0.15s",
+            }}
+          >
+            <I.settings size={13} />
+          </Link>
+        )}
       </div>
+      <style>{`.admin-icon-btn:hover { color: var(--ink) !important; background: var(--card) !important; }`}</style>
 
       <form action="/auth/signout" method="post" style={{ marginTop: 8 }}>
         <button
